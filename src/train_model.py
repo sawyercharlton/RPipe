@@ -10,6 +10,7 @@ from dataset import make_dataset, make_data_loader, process_dataset
 from metric import make_logger
 from model import make_model, make_optimizer, make_scheduler
 from module import check, resume, to_device, process_control
+from thop import profile
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='cfg')
@@ -18,6 +19,7 @@ for k in cfg:
 parser.add_argument('--control_name', default=None, type=str)
 args = vars(parser.parse_args())
 process_args(args)
+torch.set_printoptions(profile="full")  # display the full tensor list
 
 
 def main():
@@ -27,11 +29,11 @@ def main():
         cfg['tag'] = '_'.join([x for x in tag_list if x])
         process_control()
         print('Experiment: {}'.format(cfg['tag']))
-        runExperiment()
+        run_experiment()
     return
 
 
-def runExperiment():
+def run_experiment():
     cfg['seed'] = int(cfg['tag'].split('_')[0])
     torch.manual_seed(cfg['seed'])
     torch.cuda.manual_seed(cfg['seed'])
@@ -82,19 +84,20 @@ def train(data_loader, model, optimizer, scheduler, logger):
     model.train(True)
     start_time = time.time()
     with logger.profiler:
-        for i, input in data_loader:
+        for i, input_data in data_loader:
             if i % cfg['step_period'] == 0 and cfg['profile']:
                 logger.profiler.step()
-            input_size = input['data'].size(0)
-            input = to_device(input, cfg['device'])
-            output = model(input)
+            input_size = input_data['data'].size(0)
+            input_data = to_device(input_data, cfg['device'])
+
+            output = model(input_data)
             loss = 1 / cfg['step_period'] * output['loss']
             loss.backward()
             if (i + 1) % cfg['step_period'] == 0:
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
-            evaluation = logger.evaluate('train', 'batch', input, output)
+            evaluation = logger.evaluate('train', 'batch', input_data, output)
             logger.append(evaluation, 'train', n=input_size)
             idx = cfg['step'] % cfg['eval_period']
             if idx % max(int(cfg['eval_period'] * cfg['log_interval']), 1) == 0 and (i + 1) % cfg['step_period'] == 0:
@@ -111,6 +114,9 @@ def train(data_loader, model, optimizer, scheduler, logger):
                                  'Epoch Finished Time: {}'.format(epoch_finished_time),
                                  'Experiment Finished Time: {}'.format(exp_finished_time)]}
                 logger.append(info, 'train')
+                # flops, params = profile(model, (input_data,))
+                # print('flops: ', flops, 'params: ', params)
+                # print('flops: %.2f M, params: %.2f M' % (flops / 1000000.0, params / 1000000.0))
                 print(logger.write('train'))
             if (i + 1) % cfg['step_period'] == 0:
                 cfg['step'] += 1
@@ -122,11 +128,11 @@ def train(data_loader, model, optimizer, scheduler, logger):
 def test(data_loader, model, logger):
     with torch.no_grad():
         model.train(False)
-        for i, input in enumerate(data_loader):
-            input_size = input['data'].size(0)
-            input = to_device(input, cfg['device'])
-            output = model(input)
-            evaluation = logger.evaluate('test', 'batch', input, output)
+        for i, input_data in enumerate(data_loader):
+            input_size = input_data['data'].size(0)
+            input_data = to_device(input_data, cfg['device'])
+            output = model(input_data)
+            evaluation = logger.evaluate('test', 'batch', input_data, output)
             logger.append(evaluation, 'test', input_size)
         evaluation = logger.evaluate('test', 'full')
         logger.append(evaluation, 'test', input_size)

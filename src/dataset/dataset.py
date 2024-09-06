@@ -29,6 +29,11 @@ def make_dataset(data_name, verbose=True):
         dataset_['test'].transform = dataset.Compose([
             transforms.ToTensor(),
             transforms.Normalize(*data_stats[data_name])])
+    elif data_name in ['MNISTforBPE']:
+        dataset_['train'] = eval('dataset.{}(root=root, split="train", '
+                                 'transform=None)'.format(data_name))
+        dataset_['test'] = eval('dataset.{}(root=root, split="test", '
+                                'transform=None)'.format(data_name))
     elif data_name in ['CIFAR10', 'CIFAR100']:
         dataset_['train'] = eval('dataset.{}(root=root, split="train", '
                                  'transform=dataset.Compose([transforms.ToTensor()]))'.format(data_name))

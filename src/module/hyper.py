@@ -5,18 +5,18 @@ def process_control():
     cfg['data_name'] = cfg['control']['data_name']
     cfg['model_name'] = cfg['control']['model_name']
 
-    cfg['batch_size'] = 250
+    cfg['batch_size'] = 1
     cfg['step_period'] = 1
-    cfg['num_steps'] = 80000
+    # cfg['num_steps'] = 2000
     cfg['eval_period'] = 200
-    # cfg['num_epochs'] = 400
+    cfg['num_epochs'] = 1
     cfg['collate_mode'] = 'dict'
 
     cfg['model'] = {}
     cfg['model']['model_name'] = cfg['model_name']
-    data_shape = {'MNIST': [1, 28, 28], 'FashionMNIST': [1, 28, 28], 'SVHN': [3, 32, 32], 'CIFAR10': [3, 32, 32],
+    data_shape = {'MNIST': [1, 28, 28], 'MNISTforBPE': [1, 28, 28], 'FashionMNIST': [1, 28, 28], 'SVHN': [3, 32, 32], 'CIFAR10': [3, 32, 32],
                   'CIFAR100': [3, 32, 32]}
-    target_size = {'MNIST': 10, 'FashionMNIST': 10, 'SVHN': 10, 'CIFAR10': 10, 'CIFAR100': 100}
+    target_size = {'MNIST': 10, 'MNISTforBPE': 10, 'FashionMNIST': 10, 'SVHN': 10, 'CIFAR10': 10, 'CIFAR100': 100}
     cfg['model']['data_shape'] = data_shape[cfg['data_name']]
     cfg['model']['target_size'] = target_size[cfg['data_name']]
     cfg['model']['linear'] = {}

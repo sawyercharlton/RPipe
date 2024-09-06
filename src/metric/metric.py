@@ -7,7 +7,7 @@ from module import recur
 def make_metric(split, **kwargs):
     data_name = kwargs['data_name']
     metric_name = {k: [] for k in split}
-    if data_name in ['MNIST', 'FashionMNIST', 'SVHN', 'CIFAR10', 'CIFAR100']:
+    if data_name in ['MNIST', 'MNISTForEncoding', 'FashionMNIST', 'SVHN', 'CIFAR10', 'CIFAR100']:
         best = -float('inf')
         best_direction = 'up'
         best_metric_name = 'Accuracy'

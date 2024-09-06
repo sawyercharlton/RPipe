@@ -55,8 +55,8 @@ def save_img(img, path, nrow=10, padding=1, pad_value=0, value_range=None):
     return
 
 
-def to_device(input, device):
-    output = recur(lambda x, y: x.to(y), input, device)
+def to_device(input_data, device):
+    output = recur(lambda x, y: x.to(y), input_data, device)
     return output
 
 

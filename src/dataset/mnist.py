@@ -6,7 +6,95 @@ from PIL import Image
 from torch.utils.data import Dataset
 from module import check_exists, makedir_exist_ok, save, load
 from .utils import download_url, extract_file, make_classes_counts
+import torch
+import torchvision
+import torchvision.datasets.mnist as mnist
+import os
+from .ibpe import BasicTokenizer
 
+class MNISTforBPE(Dataset):
+    data_name = 'MNISTforBPE'
+    file = [('https://ossci-datasets.s3.amazonaws.com/mnist/train-images-idx3-ubyte.gz',
+             'f68b3c2dcbeaaa9fbdd348bbdeb94873'),
+            ('https://ossci-datasets.s3.amazonaws.com/mnist/t10k-images-idx3-ubyte.gz',
+             '9fb629c4189551a2d022fa330f9573f3'),
+            ('https://ossci-datasets.s3.amazonaws.com/mnist/train-labels-idx1-ubyte.gz',
+             'd53e105ee54ea40749a09fcbcd1e9432'),
+            ('https://ossci-datasets.s3.amazonaws.com/mnist/t10k-labels-idx1-ubyte.gz',
+             'ec29112dd5afa0611ce80d1b7f02629c')]
+
+    def __init__(self, root, split, transform=None):
+        self.root = os.path.expanduser(root)
+        self.split = split
+        self.transform = transform
+        if not check_exists(self.processed_folder):
+            self.process()
+        self.id, self.data, self.target = load(os.path.join(self.processed_folder, self.split))
+        self.other = {}
+        self.classes_counts = make_classes_counts(self.target)
+        self.classes_to_labels, self.target_size = load(os.path.join(self.processed_folder, 'meta'))
+
+    def __getitem__(self, index):
+        id, data, target = torch.tensor(self.id[index]), self.data[index], torch.tensor(
+            self.target[index])
+
+        # pair encoding
+        flat_array = data.flatten()
+        tokenizer = BasicTokenizer()
+        tokenizer.load('basic.model')
+        output_encoder = tokenizer.encode(flat_array)
+        encoded_array = np.asarray(output_encoder)
+
+        input = {'id': id, 'data': encoded_array, 'target': target}
+        other = {k: torch.tensor(self.other[k][index]) for k in self.other}
+        input = {**input, **other}
+        if self.transform is not None:
+            input = self.transform(input)
+        return input
+
+    def __len__(self):
+        return len(self.data)
+
+    @property
+    def processed_folder(self):
+        return os.path.join(self.root, 'processed')
+
+    @property
+    def raw_folder(self):
+        return os.path.join(self.root, 'raw')
+
+    def process(self):
+        if not check_exists(self.raw_folder):
+            self.download()
+        train_set, test_set, meta = self.make_data()
+        save(train_set, os.path.join(self.processed_folder, 'train'))
+        save(test_set, os.path.join(self.processed_folder, 'test'))
+        save(meta, os.path.join(self.processed_folder, 'meta'))
+        return
+
+    def download(self):
+        makedir_exist_ok(self.raw_folder)
+        for (url, md5) in self.file:
+            filename = os.path.basename(url)
+            download_url(url, os.path.join(self.raw_folder, filename), md5)
+            extract_file(os.path.join(self.raw_folder, filename))
+        return
+
+    def __repr__(self):
+        fmt_str = 'Dataset {}\nSize: {}\nRoot: {}\nSplit: {}\nTransforms: {}'.format(
+            self.__class__.__name__, self.__len__(), self.root, self.split, self.transform.__repr__())
+        return fmt_str
+
+    def make_data(self):
+        train_data = read_image_file(os.path.join(self.raw_folder, 'train-images-idx3-ubyte'))
+        test_data = read_image_file(os.path.join(self.raw_folder, 't10k-images-idx3-ubyte'))
+        train_target = read_label_file(os.path.join(self.raw_folder, 'train-labels-idx1-ubyte'))
+        test_target = read_label_file(os.path.join(self.raw_folder, 't10k-labels-idx1-ubyte'))
+        train_id, test_id = np.arange(len(train_data)).astype(np.int64), np.arange(len(test_data)).astype(np.int64)
+        classes = list(map(str, list(range(10))))
+        classes_to_labels = {classes[i]: i for i in range(len(classes))}
+        target_size = len(classes)
+        return (train_id, train_data, train_target), (test_id, test_data, test_target), (classes_to_labels, target_size)
 
 class MNIST(Dataset):
     data_name = 'MNIST'

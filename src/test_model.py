@@ -7,6 +7,7 @@ from dataset import make_dataset, make_data_loader, process_dataset
 from metric import make_logger
 from model import make_model
 from module import save, resume, to_device, process_control
+from thop import profile
 
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='cfg')
@@ -61,6 +62,7 @@ def test(data_loader, model, logger):
         for i, input in enumerate(data_loader):
             input_size = input['data'].size(0)
             input = to_device(input, cfg['device'])
+            print(input)
             output = model(input)
             evaluation = logger.evaluate('test', 'batch', input, output)
             logger.append(evaluation, 'test', input_size)
@@ -71,6 +73,9 @@ def test(data_loader, model, logger):
         logger.append(info, 'test')
         print(logger.write('test'))
         logger.save(True)
+        # flops, params = profile(model, (input,))
+        # print('flops: ', flops, 'params: ', params)
+        # print('flops: %.2f M, params: %.2f M' % (flops / 1000000.0, params / 1000000.0))
     return
 
 
